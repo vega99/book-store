@@ -1,5 +1,5 @@
 import { StyleSheet, View, ActivityIndicator, FlatList } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { configHeaders, URL } from "../utils/api";
 import useAppData from "../hooks/useAppData";
 import BookItem from "../components/BookItem";
@@ -17,7 +17,7 @@ const BooksScreen = (props) => {
         book.title.toLowerCase().includes(query.toLocaleLowerCase())
     );
 
-    const onRefresh = async () => {
+    const onRefresh = useCallback(async () => {
         refreshController.current = new AbortController();
         setRefreshing(true);
         const response = await fetch(URL, {
@@ -28,7 +28,7 @@ const BooksScreen = (props) => {
         const newData = await response.json();
         setData(newData);
         setRefreshing(false);
-    };
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
