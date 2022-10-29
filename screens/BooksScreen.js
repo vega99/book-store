@@ -5,56 +5,63 @@ import useAppData from "../hooks/useAppData";
 import BookItem from "../components/BookItem";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "../components/Header";
+import Error from "../components/Error";
 
 const BooksScreen = (props) => {
     const [query, setQuery] = useState("");
+    const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const { data, setData } = useAppData();
-    const refreshController = useRef(null);
+    const controller = useRef(null);
+    const isMounted = useRef(false);
 
     const filteredBooks = data.filter((book) =>
         book.title.toLowerCase().includes(query.toLocaleLowerCase())
     );
 
     const onRefresh = useCallback(async () => {
-        refreshController.current = new AbortController();
+        controller.current = new AbortController();
         setRefreshing(true);
         const response = await fetch(URL, {
             method: "GET",
-            signal: refreshController.current.signal,
+            signal: controller.current.signal,
             headers: configHeaders,
         });
         const newData = await response.json();
-        setData(newData);
-        setRefreshing(false);
+        // PREVENTING MEMORY LEAKS
+        isMounted.current && setData(newData);
+        isMounted.current && setRefreshing(false);
+    }, []);
+
+    const getData = useCallback(async () => {
+        controller.current = new AbortController();
+        setLoading(true);
+        try {
+            const response = await fetch(URL, {
+                method: "GET",
+                signal: controller.signal,
+                headers: configHeaders,
+            });
+            const newData = await response.json();
+            // PREVENTING MEMORY LEAKS
+            isMounted.current && setData(newData);
+        } catch (error) {
+            isMounted.current && setError('Something went very wrong!');
+        } finally {
+            // PREVENTING MEMORY LEAKS
+            isMounted.current && setLoading(false);
+        }
     }, []);
 
     useEffect(() => {
-        const controller = new AbortController();
-
-        const getData = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch(URL, {
-                    method: "GET",
-                    signal: controller.signal,
-                    headers: configHeaders,
-                });
-                const newData = await response.json();
-                setData(newData);
-            } catch (error) {
-                console.log(error);
-            } finally {
-                setLoading(false);
-            }
-        };
+        isMounted.current = true;
         getData();
 
         // cancel api requests
         return () => {
-            controller.abort();
-            refreshController.current?.abort();
+            isMounted.current = false;
+            controller.current?.abort();
         };
     }, []);
 
@@ -68,20 +75,18 @@ const BooksScreen = (props) => {
                         color={"lightgray"}
                     />
                 </View>
+            ) : error ? (
+                <Error onRealod={getData} error={error}/>
             ) : (
                 <FlatList
                     accessibilityLabel="books"
                     data={filteredBooks}
                     showsVerticalScrollIndicator={false}
                     keyExtractor={(item) => item.id + "id"}
-                    ListHeaderComponent={
-                        <Header query={query} setQuery={setQuery} />
-                    }
+                    ListHeaderComponent={<Header query={query} setQuery={setQuery} />}
                     onRefresh={onRefresh}
                     refreshing={refreshing}
-                    renderItem={({ item }) => (
-                        <BookItem item={item} navigation={props.navigation} />
-                    )}
+                    renderItem={({ item }) => <BookItem item={item} navigation={props.navigation} />}
                 />
             )}
         </SafeAreaView>

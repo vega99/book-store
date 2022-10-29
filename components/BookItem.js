@@ -8,7 +8,7 @@ const BookItem = ({ item, navigation }) => {
     }
 
     return (
-        <TouchableOpacity accessibilityLabel="book" style={styles.container} onPress={handlePress}>
+        <TouchableOpacity testID="book" style={styles.container} onPress={handlePress}>
             <Image
                 source={{ uri: item.imgUrl }}
                 style={styles.image}
